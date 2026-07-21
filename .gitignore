@@ -1,0 +1,13 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node (only if you later add tooling)
+node_modules/
+
+# Optional heavy media — uncomment if you don't want large videos in git.
+# Consider Git LFS instead.
+# assets/video/*.mp4
+# assets/video/*.webm

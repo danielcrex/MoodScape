@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0E1116" />
+  <title>MoodScape — immersive moods</title>
+  <meta name="description" content="Switch between calming, nature-themed moods. Immersive backdrops, ambient sound you can mix, and a quiet focus timer." />
+
+  <!-- Design system fonts: Figtree (display + body) and Work Sans (alt). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Work+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<!-- ===========================================================================
+     INLINE ICON SPRITE
+     One hidden <svg> holds every icon as a <symbol>; elsewhere we reference them
+     with <use href="#icon-…">. This keeps markup light and icons crisp at any
+     size, with no extra network requests. All are 24×24, stroke-based, so they
+     inherit currentColor and match the design system's line weight.
+============================================================================ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Mood icons -->
+    <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="icon-rain" viewBox="0 0 24 24"><path d="M4 14a4 4 0 0 1 .5-8 5.5 5.5 0 0 1 10.9 1.2A3.5 3.5 0 0 1 18 14"/><path d="M8 18l-1 2M12 18l-1 2M16 18l-1 2"/></symbol>
+    <symbol id="icon-flower" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><path d="M12 9.5c0-2 1-4 0-6-1 2 0 4 0 6zM12 14.5c0 2-1 4 0 6 1-2 0-4 0-6zM9.5 12c-2 0-4-1-6 0 2 1 4 0 6 0zM14.5 12c2 0 4 1 6 0-2-1-4 0-6 0z"/></symbol>
+    <symbol id="icon-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></symbol>
+    <symbol id="icon-flame" viewBox="0 0 24 24"><path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-2 1-3 1-3s0 2 1.5 2S12 8 12 6c0 0 1 1 2 3"/></symbol>
+    <symbol id="icon-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 4v3M20.5 5.5h-3"/></symbol>
+    <symbol id="icon-wave" viewBox="0 0 24 24"><path d="M2 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2 15c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></symbol>
+    <symbol id="icon-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></symbol>
+    <!-- Control icons -->
+    <symbol id="icon-expand" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></symbol>
+    <symbol id="icon-compress" viewBox="0 0 24 24"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></symbol>
+    <symbol id="icon-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M18 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></symbol>
+    <symbol id="icon-volume" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8a4 4 0 0 1 0 8"/></symbol>
+    <symbol id="icon-mute" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M22 9l-6 6M16 9l6 6"/></symbol>
+    <symbol id="icon-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></symbol>
+    <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M7 4h3v16H7zM14 4h3v16h-3z"/></symbol>
+    <symbol id="icon-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/></symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  </defs>
+</svg>
+
+<!-- ===========================================================================
+     APP ROOT — this is the element that enters fullscreen, so all HUD elements
+     expand together. `.is-immersed` (added when idle in fullscreen) fades the
+     chrome so only the scene remains.
+============================================================================ -->
+<div id="app" class="app">
+
+  <!-- The two crossfading video/scene layers are injected here by background.js. -->
+  <div id="bg" class="bg" aria-hidden="true"></div>
+
+  <!-- A one-time invitation to turn on sound (autoplay policies need a gesture). -->
+  <button id="soundPrompt" class="sound-prompt" hidden>
+    <svg class="icon"><use href="#icon-volume"/></svg>
+    Turn on ambient sound
+  </button>
+
+  <!-- ---------------------------------- TOP HUD --------------------------------- -->
+  <header class="hud-top" id="chrome-top">
+    <div class="brand">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <b>MoodScape</b>
+    </div>
+
+    <!-- Mood tabs. Buttons are injected by app.js from the MOODS manifest. -->
+    <nav class="mood-nav" id="moodNav" aria-label="Choose a mood"></nav>
+
+    <div class="hud-top__controls">
+      <!-- Sound on/off, styled as the design-system toggle. -->
+      <label class="toggle" title="Ambient sound (M)">
+        <input type="checkbox" id="soundToggle" />
+        <span class="track"></span><span class="thumb"></span>
+        <span class="sr-only">Ambient sound</span>
+      </label>
+      <button class="icon-btn" id="mixerBtn" aria-pressed="false" title="Ambient mixer" aria-label="Ambient mixer">
+        <svg class="icon"><use href="#icon-sliders"/></svg>
+      </button>
+      <button class="icon-btn" id="fsBtn" title="Fullscreen (F)" aria-label="Enter fullscreen">
+        <svg class="icon"><use href="#icon-expand"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ---------------------------------- TIMER ---------------------------------- -->
+  <!-- Fixed top-right. The big readout uses .num (tabular figures) so it never
+       shifts width as the seconds tick. -->
+  <section class="timer card-glass" id="timerCard" aria-label="Focus timer">
+    <div class="timer__label eyebrow">Stay in this mood</div>
+    <div class="timer__readout num" id="timerDisplay">15:00</div>
+    <div class="timer__durations" id="timerDurations" role="group" aria-label="Focus length">
+      <button data-min="5">5</button>
+      <button data-min="15" class="is-active">15</button>
+      <button data-min="25">25</button>
+      <button data-min="45">45</button>
+    </div>
+    <div class="timer__actions">
+      <button class="btn btn--primary btn--sm" id="timerToggle">
+        <svg class="icon"><use href="#icon-play"/></svg><span>Start</span>
+      </button>
+      <button class="icon-btn" id="timerReset" title="Reset" aria-label="Reset timer">
+        <svg class="icon"><use href="#icon-reset"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- --------------------------------- MIXER ----------------------------------- -->
+  <!-- Floating card, hidden until the mixer button is pressed. Rows are injected
+       per mood (master + each active ambient layer). -->
+  <section class="mixer card-glass" id="mixerCard" hidden aria-label="Ambient mixer">
+    <div class="mixer__head">
+      <span class="eyebrow">Ambient mixer</span>
+      <button class="icon-btn icon-btn--sm" id="mixerClose" aria-label="Close mixer">
+        <svg class="icon"><use href="#icon-close"/></svg>
+      </button>
+    </div>
+    <div class="mixer__body" id="mixerBody"></div>
+    <p class="mixer__hint small">Blend the layers to taste. Turn on sound to hear it.</p>
+  </section>
+
+  <!-- --------------------------------- PROMPT ---------------------------------- -->
+  <!-- Centred lower third. Tap to advance to the next affirmation. -->
+  <p class="prompt" id="prompt" role="status" aria-live="polite" title="Tap for the next thought"></p>
+
+</div><!-- /#app -->
+
+<!-- Modules. type="module" gives us clean imports; app.js is the entry point. -->
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
