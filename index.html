@@ -57,12 +57,6 @@
   <!-- The two crossfading video/scene layers are injected here by background.js. -->
   <div id="bg" class="bg" aria-hidden="true"></div>
 
-  <!-- A one-time invitation to turn on sound (autoplay policies need a gesture). -->
-  <button id="soundPrompt" class="sound-prompt" hidden>
-    <svg class="icon"><use href="#icon-volume"/></svg>
-    Turn on ambient sound
-  </button>
-
   <!-- ---------------------------------- TOP HUD --------------------------------- -->
   <header class="hud-top" id="chrome-top">
     <div class="brand">
@@ -74,11 +68,16 @@
     <nav class="mood-nav" id="moodNav" aria-label="Choose a mood"></nav>
 
     <div class="hud-top__controls">
-      <!-- Sound on/off, styled as the design-system toggle. -->
-      <label class="toggle" title="Ambient sound (M)">
-        <input type="checkbox" id="soundToggle" />
-        <span class="track"></span><span class="thumb"></span>
-        <span class="sr-only">Ambient sound</span>
+      <!-- Sound on/off. A speaker icon reflects state (volume when on, mute when
+           off); the switch is the control. Both live in one label so a click on
+           either toggles, and toggling is a genuine user gesture (resumes audio). -->
+      <label class="sound" title="Ambient sound (M)">
+        <svg class="icon sound__icon" id="soundIcon" aria-hidden="true"><use href="#icon-mute"/></svg>
+        <span class="toggle">
+          <input type="checkbox" id="soundToggle" />
+          <span class="track"></span><span class="thumb"></span>
+          <span class="sr-only" id="soundLabel">Ambient sound off</span>
+        </span>
       </label>
       <button class="icon-btn" id="mixerBtn" aria-pressed="false" title="Ambient mixer" aria-label="Ambient mixer">
         <svg class="icon"><use href="#icon-sliders"/></svg>

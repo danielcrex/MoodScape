@@ -32,7 +32,8 @@ const el = {
   bg: document.getElementById('bg'),
   nav: document.getElementById('moodNav'),
   soundToggle: document.getElementById('soundToggle'),
-  soundPrompt: document.getElementById('soundPrompt'),
+  soundIcon: document.getElementById('soundIcon'),
+  soundLabel: document.getElementById('soundLabel'),
   mixerBtn: document.getElementById('mixerBtn'),
   mixerCard: document.getElementById('mixerCard'),
   mixerBody: document.getElementById('mixerBody'),
@@ -156,11 +157,12 @@ function mixRow(key, label, value, extraClass = '') {
 function enableSound(on) {
   audio.setEnabled(on);
   el.soundToggle.checked = on;
-  el.soundPrompt.hidden = on;                  // dismiss the one-time nudge
+  // Reflect state in the speaker glyph + accessible label (which names the switch).
+  el.soundIcon.querySelector('use').setAttribute('href', on ? '#icon-volume' : '#icon-mute');
+  el.soundLabel.textContent = on ? 'Ambient sound on' : 'Ambient sound off';
   if (on && currentMood) applyAudioForMood(currentMood);
 }
 el.soundToggle.addEventListener('change', () => enableSound(el.soundToggle.checked));
-el.soundPrompt.addEventListener('click', () => enableSound(true));
 
 /* ---------------------------------------------------------------------------
    MIXER PANEL open/close
@@ -280,4 +282,3 @@ const startId = store.get('moodscape:mood') && getMood(store.get('moodscape:mood
   ? store.get('moodscape:mood')
   : MOODS[0].id;
 selectMood(startId);
-el.soundPrompt.hidden = false;                   // show the gentle "turn on sound" nudge

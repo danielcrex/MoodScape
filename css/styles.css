@@ -93,7 +93,7 @@ button { cursor: pointer; background: none; border: none; }
 }
 
 /* Every interactive layer sits above the scene + scrim. */
-.hud-top, .timer, .mixer, .prompt, .sound-prompt { z-index:5; }
+.hud-top, .timer, .mixer, .prompt { z-index:5; }
 
 /* --------------------------- FROSTED GLASS PANEL --------------------------- */
 /* The design system's "floating white card", made translucent for this context.
@@ -159,6 +159,10 @@ button { cursor: pointer; background: none; border: none; }
 .icon-btn--sm { width:32px; height:32px; color:var(--ink-2); background:var(--surface-2); border-color:var(--border-2); }
 .icon-btn--sm:hover { background:var(--border); }
 .icon-btn--sm .icon { width:16px; height:16px; }
+
+/* Sound control: a stateful speaker glyph beside the switch, one clickable label. */
+.sound { display:inline-flex; align-items:center; gap:8px; cursor:pointer; }
+.sound__icon { width:20px; height:20px; color:#fff; opacity:.85; transition:opacity .18s, color .18s; }
 
 /* System toggle (sound on/off). */
 .toggle { position:relative; width:44px; height:26px; flex:none; display:inline-block; }
@@ -240,22 +244,6 @@ input[type="range"]::-moz-range-track { height:6px; border-radius:var(--r-pill);
   opacity:1; transition:opacity .4s ease, transform .4s ease;
 }
 .prompt.is-fading { opacity:0; transform:translateX(-50%) translateY(6px); }
-
-/* ------------------------------ SOUND PROMPT ------------------------------- */
-/* Centred one-time nudge to enable audio (needed because browsers block
-   autoplay until the user interacts). */
-.sound-prompt {
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  display:inline-flex; align-items:center; gap:10px;
-  padding:12px 20px; border-radius:var(--r-pill);
-  font-size:14px; font-weight:600; color:var(--ink);
-  background:var(--glass); border:1px solid var(--glass-border);
-  -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
-  box-shadow:var(--shadow-lg);
-  animation:floatIn .5s ease both;
-}
-.sound-prompt .icon { color:var(--accent); }
-@keyframes floatIn { from{opacity:0; transform:translate(-50%,-46%)} to{opacity:1; transform:translate(-50%,-50%)} }
 
 /* ------------------------- IMMERSED (idle in fullscreen) ------------------- */
 /* When fullscreen and the pointer has been still for a few seconds, fade the
