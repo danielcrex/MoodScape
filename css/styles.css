@@ -1,0 +1,301 @@
+/* ===========================================================================
+   MoodScape — styles.css
+   ---------------------------------------------------------------------------
+   Built on the "Daniele's Touch" design system. MoodScape is a fullscreen video
+   experience, so the system's "pure white, depth from shadow" philosophy is
+   expressed as FLOATING FROSTED-WHITE GLASS panels over the scene: same hairline
+   borders, same layered shadows, same type scale, same single Cobalt accent for
+   the active state / primary action / focus, same tabular figures for data.
+   The scene itself carries each mood's colour; the chrome stays disciplined.
+   =========================================================================== */
+
+/* --------------------------------- TOKENS ---------------------------------- */
+/* Canonical tokens, copied verbatim from the Daniele's Touch reference so the
+   whole app derives every colour, radius, shadow and space from one place. */
+:root {
+  /* Neutral foundation */
+  --bg:#FFFFFF; --surface:#FAFBFC; --surface-2:#F3F5F8;
+  --border:#ECEEF2; --border-2:#DEE2E9;
+  --ink:#0E1116; --ink-2:#4B525C; --ink-3:#858C97;
+
+  /* Accent (Cobalt) — marks the single active state / primary action / focus */
+  --accent:#2B54F0; --accent-ink:#FFFFFF; --accent-weak:#ECEFFE; --accent-shadow:rgba(43,84,240,.28);
+
+  /* Typography (Figtree — the geometric option, apt for a precise product) */
+  --font-display:'Figtree', sans-serif;
+  --font-body:'Figtree', sans-serif;
+  --font-number:'Figtree', sans-serif;
+  --display-weight:800; --display-tracking:-0.03em;
+
+  /* Radius */
+  --r-card:14px; --r-btn:10px; --r-input:10px; --r-pill:999px;
+
+  /* Elevation — stacked low-opacity shadows = "floating on white" */
+  --shadow-sm:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.05);
+  --shadow-md:0 4px 10px rgba(16,24,40,.05),0 2px 4px rgba(16,24,40,.04);
+  --shadow-lg:0 16px 40px rgba(16,24,40,.10),0 4px 10px rgba(16,24,40,.05);
+
+  /* Spacing scale (4px base) */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:72px;
+
+  /* Live mood tint — updated by app.js on every mood change. Used only as a
+     whisper of the current scene (the brand mark), never to replace the accent. */
+  --mood:#2B54F0;
+
+  /* The frosted-glass surface used by every floating HUD panel. */
+  --glass:rgba(255,255,255,.82);
+  --glass-border:rgba(255,255,255,.55);
+}
+
+/* ---------------------------------- RESET ---------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+html, body { height: 100%; }
+body {
+  line-height: 1.5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  background: #0E1116; color: var(--ink); font-family: var(--font-body);
+  overflow: hidden;                      /* the scene fills the viewport; no page scroll */
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
+
+/* Shared type helpers from the system. */
+.eyebrow { font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); }
+.small { font-size:13px; color:var(--ink-3); line-height:1.55; }
+.num { font-family:var(--font-number); font-feature-settings:"tnum" 1,"lnum" 1; }
+.icon { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; display:block; }
+
+/* ---------------------------------- APP ------------------------------------ */
+.app { position:fixed; inset:0; overflow:hidden; }
+
+/* Background layers (built by background.js): two stacked full-screen layers
+   that crossfade. Each holds a video, a canvas, and a colour-grade overlay. */
+.bg { position:absolute; inset:0; z-index:0; background:#0E1116; }
+.bg-layer { position:absolute; inset:0; opacity:0; transition:opacity 1.2s ease; }
+.bg-layer.is-visible { opacity:1; }
+.bg-video, .bg-canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.bg-grade { position:absolute; inset:0; pointer-events:none; }   /* the mood colour wash */
+
+/* Loading shimmer while a real video buffers (canvas scenes are instant). */
+.bg-layer.is-loading::after {
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(90deg,rgba(255,255,255,.02) 25%,rgba(255,255,255,.08) 37%,rgba(255,255,255,.02) 63%);
+  background-size:400% 100%; animation:shimmer 1.6s ease infinite;
+}
+@keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+
+/* A gentle top-and-bottom scrim keeps the glass panels legible over any scene. */
+.app::before {
+  content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(to bottom, rgba(0,0,0,.28), transparent 22%, transparent 60%, rgba(0,0,0,.34));
+}
+
+/* Every interactive layer sits above the scene + scrim. */
+.hud-top, .timer, .mixer, .prompt, .sound-prompt { z-index:5; }
+
+/* --------------------------- FROSTED GLASS PANEL --------------------------- */
+/* The design system's "floating white card", made translucent for this context.
+   Keeps the hairline border, layered shadow, radius and dark ink text. */
+.card-glass {
+  background:var(--glass);
+  -webkit-backdrop-filter:saturate(1.4) blur(18px);
+  backdrop-filter:saturate(1.4) blur(18px);
+  border:1px solid var(--glass-border);
+  border-radius:var(--r-card);
+  box-shadow:var(--shadow-lg);
+  color:var(--ink);
+}
+
+/* --------------------------------- TOP HUD --------------------------------- */
+.hud-top {
+  position:absolute; top:0; left:0; right:0;
+  display:flex; align-items:center; gap:var(--s4);
+  padding:var(--s3) var(--s4);
+  padding-top:calc(var(--s3) + env(safe-area-inset-top));
+}
+.brand { display:flex; align-items:center; gap:10px; flex:none; }
+.brand__mark {
+  width:26px; height:26px; border-radius:8px;
+  background:var(--mood);                        /* the whisper of the current scene */
+  box-shadow:0 2px 10px color-mix(in srgb, var(--mood) 55%, transparent);
+  transition:background .6s ease, box-shadow .6s ease;
+}
+.brand b { font-family:var(--font-display); font-weight:800; letter-spacing:-.02em; color:#fff; text-shadow:0 1px 8px rgba(0,0,0,.35); font-size:17px; }
+
+/* Mood tabs — a scrollable pill group. Active tab = Cobalt accent (per system). */
+.mood-nav { display:flex; gap:6px; align-items:center; overflow-x:auto; scrollbar-width:none; flex:1; padding:4px; }
+.mood-nav::-webkit-scrollbar { display:none; }
+.mood-tab {
+  flex:none; display:inline-flex; align-items:center; gap:7px;
+  padding:8px 14px; border-radius:var(--r-pill);
+  font-size:14px; font-weight:600; letter-spacing:-.01em; color:#fff;
+  background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.14);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  transition:background .18s, border-color .18s, transform .12s, color .18s;
+  white-space:nowrap;
+}
+.mood-tab .icon { width:16px; height:16px; opacity:.9; }
+.mood-tab:hover { background:rgba(255,255,255,.20); }
+.mood-tab:active { transform:translateY(1px); }
+.mood-tab[aria-selected="true"] {
+  background:var(--accent); color:var(--accent-ink); border-color:transparent;
+  box-shadow:0 4px 14px var(--accent-shadow);
+}
+
+.hud-top__controls { display:flex; align-items:center; gap:var(--s3); flex:none; }
+
+/* Icon buttons on glass. */
+.icon-btn {
+  display:grid; place-items:center; width:40px; height:40px; border-radius:var(--r-btn);
+  color:#fff; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.16);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  transition:background .18s, transform .12s;
+}
+.icon-btn:hover { background:rgba(255,255,255,.22); }
+.icon-btn:active { transform:translateY(1px); }
+.icon-btn[aria-pressed="true"] { background:var(--accent); border-color:transparent; box-shadow:0 4px 14px var(--accent-shadow); }
+.icon-btn--sm { width:32px; height:32px; color:var(--ink-2); background:var(--surface-2); border-color:var(--border-2); }
+.icon-btn--sm:hover { background:var(--border); }
+.icon-btn--sm .icon { width:16px; height:16px; }
+
+/* System toggle (sound on/off). */
+.toggle { position:relative; width:44px; height:26px; flex:none; display:inline-block; }
+.toggle input { position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; }
+.toggle .track { position:absolute; inset:0; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.28); border-radius:var(--r-pill); transition:background .18s, border-color .18s; }
+.toggle .thumb { position:absolute; top:3px; left:3px; width:18px; height:18px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(16,24,40,.3); transition:transform .18s; }
+.toggle input:checked + .track { background:var(--accent); border-color:var(--accent); }
+.toggle input:checked + .track + .thumb { transform:translateX(18px); }
+
+/* System buttons (used inside the timer). */
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:var(--r-btn); padding:11px 18px; font-size:14px; font-weight:600; letter-spacing:-.01em; border:1px solid transparent; transition:transform .12s, box-shadow .2s, background .18s; }
+.btn:active { transform:translateY(1px); }
+.btn--primary { background:var(--accent); color:var(--accent-ink); box-shadow:0 4px 14px var(--accent-shadow); }
+.btn--primary:hover { filter:brightness(1.05); }
+.btn--sm { padding:8px 13px; font-size:13px; }
+.btn .icon { width:16px; height:16px; }
+
+/* ---------------------------------- TIMER ---------------------------------- */
+.timer {
+  position:absolute; top:0; right:0;
+  margin:calc(72px + env(safe-area-inset-top)) var(--s4) 0 0;
+  width:210px; padding:var(--s4); text-align:center;
+}
+.timer__label { display:block; margin-bottom:var(--s2); }
+.timer__readout {
+  font-weight:800; font-size:44px; letter-spacing:-.02em; line-height:1; color:var(--ink);
+  transition:color .3s;
+}
+.timer__readout.is-running { color:var(--accent); }   /* clear running signal */
+.timer__durations { display:flex; gap:6px; justify-content:center; margin:var(--s4) 0 var(--s3); }
+.timer__durations button {
+  flex:1; padding:7px 0; border-radius:var(--r-btn); font-size:13px; font-weight:600;
+  color:var(--ink-2); background:var(--surface-2); border:1px solid var(--border);
+  transition:background .15s, color .15s, border-color .15s;
+}
+.timer__durations button:hover { background:var(--border); }
+.timer__durations button.is-active { background:var(--accent); color:#fff; border-color:transparent; }
+.timer__actions { display:flex; gap:var(--s2); align-items:center; }
+.timer__actions .btn { flex:1; }
+
+/* ---------------------------------- MIXER ---------------------------------- */
+.mixer {
+  position:absolute; left:var(--s4); bottom:var(--s4);
+  width:280px; padding:var(--s4);
+  margin-bottom:env(safe-area-inset-bottom);
+}
+.mixer__head { display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--s3); }
+.mixer__body { display:flex; flex-direction:column; gap:var(--s3); }
+.mixer__hint { margin-top:var(--s3); }
+
+/* One volume row: label above, slider below. */
+.mix-row__top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+.mix-row__name { font-size:13px; font-weight:600; color:var(--ink); }
+.mix-row__val { font-size:12px; color:var(--ink-3); }
+.mix-row--master .mix-row__name { color:var(--accent); }
+
+/* Range slider styled with the accent fill. --val (0–100%) is set by app.js. */
+input[type="range"] {
+  -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:var(--r-pill);
+  background:linear-gradient(to right, var(--accent) var(--val,50%), var(--surface-2) var(--val,50%));
+  cursor:pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+  background:#fff; border:1px solid var(--border-2); box-shadow:var(--shadow-sm);
+}
+input[type="range"]::-moz-range-thumb {
+  width:18px; height:18px; border-radius:50%; background:#fff; border:1px solid var(--border-2); box-shadow:var(--shadow-sm);
+}
+input[type="range"]::-moz-range-track { height:6px; border-radius:var(--r-pill); background:transparent; }
+
+/* --------------------------------- PROMPT ---------------------------------- */
+.prompt {
+  position:absolute; left:50%; bottom:12%; transform:translateX(-50%);
+  max-width:min(720px, 84vw); text-align:center; cursor:pointer;
+  font-family:var(--font-display); font-weight:700; letter-spacing:-.02em;
+  font-size:clamp(20px, 3vw, 30px); line-height:1.3; color:#fff;
+  text-shadow:0 2px 20px rgba(0,0,0,.5);
+  opacity:1; transition:opacity .4s ease, transform .4s ease;
+}
+.prompt.is-fading { opacity:0; transform:translateX(-50%) translateY(6px); }
+
+/* ------------------------------ SOUND PROMPT ------------------------------- */
+/* Centred one-time nudge to enable audio (needed because browsers block
+   autoplay until the user interacts). */
+.sound-prompt {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  display:inline-flex; align-items:center; gap:10px;
+  padding:12px 20px; border-radius:var(--r-pill);
+  font-size:14px; font-weight:600; color:var(--ink);
+  background:var(--glass); border:1px solid var(--glass-border);
+  -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
+  box-shadow:var(--shadow-lg);
+  animation:floatIn .5s ease both;
+}
+.sound-prompt .icon { color:var(--accent); }
+@keyframes floatIn { from{opacity:0; transform:translate(-50%,-46%)} to{opacity:1; transform:translate(-50%,-50%)} }
+
+/* ------------------------- IMMERSED (idle in fullscreen) ------------------- */
+/* When fullscreen and the pointer has been still for a few seconds, fade the
+   chrome away so nothing but the scene remains. Any input brings it back. */
+.app.is-immersed .hud-top,
+.app.is-immersed .timer,
+.app.is-immersed .mixer,
+.app.is-immersed .prompt { opacity:0; pointer-events:none; transition:opacity .6s ease; }
+/* Exception: keep the timer visible while it's actively counting down. */
+.app.is-immersed .timer.timer--pinned { opacity:1; pointer-events:auto; }
+
+/* -------------------------------- RESPONSIVE ------------------------------- */
+@media (max-width: 720px) {
+  /* Mood tabs move to a floating bar at the BOTTOM, per the brief. */
+  .mood-nav {
+    position:fixed; left:8px; right:8px; bottom:calc(8px + env(safe-area-inset-bottom));
+    background:var(--glass); border:1px solid var(--glass-border);
+    -webkit-backdrop-filter:saturate(1.4) blur(18px); backdrop-filter:saturate(1.4) blur(18px);
+    box-shadow:var(--shadow-lg); border-radius:var(--r-pill);
+    padding:6px; gap:4px;
+  }
+  /* On the glass bar the tabs read as dark ink; active stays Cobalt. */
+  .mood-tab { color:var(--ink-2); background:transparent; border-color:transparent; padding:9px 13px; }
+  .mood-tab:hover { background:var(--surface-2); }
+  .mood-tab[aria-selected="true"] { color:#fff; }
+
+  .hud-top { justify-content:space-between; }
+  .timer { width:170px; margin-top:calc(64px + env(safe-area-inset-top)); padding:var(--s3); }
+  .timer__readout { font-size:36px; }
+  .mixer { left:8px; right:8px; width:auto; bottom:76px; }
+  .prompt { bottom:22%; font-size:clamp(18px,5vw,24px); }
+}
+
+@media (max-width: 400px) {
+  .brand b { display:none; }                 /* keep the mark, drop the wordmark */
+  .timer__durations button { font-size:12px; }
+}
+
+/* ----------------------------- REDUCED MOTION ------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration:.001ms !important; animation-duration:.001ms !important; }
+  .bg-layer { transition:opacity .2s ease; } /* keep a soft crossfade, just quick */
+}
