@@ -104,7 +104,11 @@
       <button class="btn btn--primary btn--sm" id="timerToggle">
         <svg class="icon"><use href="#icon-play"/></svg><span>Start</span>
       </button>
-      <button class="icon-btn" id="timerReset" title="Reset" aria-label="Reset timer">
+      <!-- The reset button sits on the light timer card, so it uses the
+           light-surface icon-button variant (dark ink on a pale fill) rather
+           than the white-on-dark .icon-btn used in the HUD over the scene —
+           otherwise the glyph is white-on-white and reads as a blank square. -->
+      <button class="icon-btn icon-btn--sm" id="timerReset" title="Reset" aria-label="Reset timer">
         <svg class="icon"><use href="#icon-reset"/></svg>
       </button>
     </div>
