@@ -6,6 +6,12 @@ Thumbs.db
 
 # Node (only if you later add tooling)
 node_modules/
+package.json
+package-lock.json
+
+# Local dev-only visual test scaffolding (not part of the app)
+.shot.mjs
+.interact.mjs
 
 # Optional heavy media — uncomment if you don't want large videos in git.
 # Consider Git LFS instead.
