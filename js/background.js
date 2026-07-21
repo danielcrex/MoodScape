@@ -127,6 +127,14 @@ export class Background {
     layer.scene.start();
   }
 
+  /* Ask the currently visible scene to flash lightning, if it supports it (only
+     Melancholy's rain scene does). Wired to the thunder audio by app.js, so the
+     flash lands roughly when the thunder swells. */
+  flashLightning() {
+    const l = this.layers[this.front];
+    if (l && l.scene && typeof l.scene.flash === 'function') l.scene.flash();
+  }
+
   /* Stop and reset a layer so it holds no running loop or playing video. */
   #teardown(layer) {
     clearTimeout(layer._videoGuard);

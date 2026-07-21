@@ -12,11 +12,13 @@ import { AudioEngine } from './audio.js';
 import { Timer } from './timer.js';
 import { Prompts } from './prompts.js';
 import { Fullscreen } from './fullscreen.js';
+import { applyMoodTheme } from './theme.js';
 
 /* Human-readable names for the synth layers (used as mixer row labels). */
 const LAYER_LABEL = {
   rain: 'Rain', wind: 'Wind', water: 'River', noise: 'White noise', fire: 'Fire',
   thunder: 'Thunder', birds: 'Birdsong', chimes: 'Chimes', drone: 'Drone', beat: 'Lofi beat',
+  waves: 'Waves', crickets: 'Crickets', bowl: 'Singing bowl', bubbles: 'Water drops',
 };
 
 /* Small helpers for reading/writing the last-used mood, guarded so a locked-down
@@ -32,7 +34,8 @@ const el = {
   bg: document.getElementById('bg'),
   nav: document.getElementById('moodNav'),
   soundToggle: document.getElementById('soundToggle'),
-  soundPrompt: document.getElementById('soundPrompt'),
+  soundIcon: document.getElementById('soundIcon'),
+  soundLabel: document.getElementById('soundLabel'),
   mixerBtn: document.getElementById('mixerBtn'),
   mixerCard: document.getElementById('mixerCard'),
   mixerBody: document.getElementById('mixerBody'),
@@ -59,6 +62,10 @@ const timer = new Timer(el.timerDisplay, {
 });
 
 let currentMood = null;
+
+/* When the thunder layer swells (Melancholy), flash the rain scene's lightning
+   in sympathy. The scene itself ignores this under prefers-reduced-motion. */
+audio.onThunder = () => background.flashLightning();
 
 /* ---------------------------------------------------------------------------
    MOOD TABS
@@ -91,11 +98,13 @@ function selectMood(id) {
   el.nav.querySelector('[aria-selected="true"]')
     ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
 
-  // Whisper the mood tint into the chrome (just the brand mark).
-  document.documentElement.style.setProperty('--mood', mood.tint);
+  // Tint the whole HUD toward this mood (panels, accent, sliders, focus ring),
+  // deriving legible text ink from the tint's luminance. See theme.js.
+  applyMoodTheme(mood);
 
   background.show(mood);       // crossfade the backdrop + grade
   applyAudioForMood(mood);     // ramp the ambient mix
+  audio.setMusicMood(mood);    // rebuild the music bed for this mood (if music is on)
   prompts.setMood(mood);       // swap affirmations
   buildMixer(mood);            // rebuild the mixer rows for this mood's layers
 
@@ -114,10 +123,62 @@ function applyAudioForMood(mood) {
    --------------------------------------------------------------------------- */
 function buildMixer(mood) {
   el.mixerBody.innerHTML = '';
+  el.mixerBody.appendChild(musicBlock());            // the mood's melodic bed (distinct)
   el.mixerBody.appendChild(mixRow('master', 'Master', audio.masterLevel, 'mix-row--master'));
   Object.keys(mood.audio).forEach((name) => {
     el.mixerBody.appendChild(mixRow(name, LAYER_LABEL[name] || name, audio.getLayer(name)));
   });
+}
+
+/* The Music block: visually distinct from the ambient sliders (its own card
+   with an on/off switch and a volume slider). The switch is a real gesture, so
+   it resumes audio; enabling music also turns the master sound on so it's
+   actually audible. Rebuilt with the mixer, so it reflects live engine state. */
+function musicBlock() {
+  const on = audio.isMusicOn();
+  const block = document.createElement('div');
+  block.className = `mix-music${on ? ' is-on' : ''}`;
+
+  const head = document.createElement('div');
+  head.className = 'mix-music__head';
+  head.innerHTML =
+    `<span class="mix-music__title"><svg class="icon"><use href="#icon-music"/></svg>Music</span>`;
+
+  // On/off switch (reuses the design-system toggle styling, in a small size).
+  const toggle = document.createElement('label');
+  toggle.className = 'toggle toggle--sm';
+  toggle.title = 'Music bed';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox'; cb.checked = on;
+  cb.setAttribute('aria-label', on ? 'Music on' : 'Music off');
+  const track = document.createElement('span'); track.className = 'track';
+  const thumb = document.createElement('span'); thumb.className = 'thumb';
+  toggle.append(cb, track, thumb);
+  head.appendChild(toggle);
+
+  // Volume slider (dimmed when music is off).
+  const range = document.createElement('input');
+  range.type = 'range';
+  range.min = '0'; range.max = '1'; range.step = '0.01';
+  range.value = String(audio.getMusicLevel());
+  range.setAttribute('aria-label', 'Music volume');
+  const paint = () => range.style.setProperty('--val', `${range.value * 100}%`);
+  paint();
+
+  cb.addEventListener('change', () => {
+    const wantOn = cb.checked;
+    if (wantOn) enableSound(true);        // music needs the master on to be heard
+    audio.setMusicEnabled(wantOn);
+    cb.setAttribute('aria-label', wantOn ? 'Music on' : 'Music off');
+    block.classList.toggle('is-on', wantOn);
+  });
+  range.addEventListener('input', () => {
+    audio.setMusicLevel(parseFloat(range.value));
+    paint();
+  });
+
+  block.append(head, range);
+  return block;
 }
 
 /* Build one labelled slider row. `key` is 'master' or a layer name. */
@@ -156,11 +217,12 @@ function mixRow(key, label, value, extraClass = '') {
 function enableSound(on) {
   audio.setEnabled(on);
   el.soundToggle.checked = on;
-  el.soundPrompt.hidden = on;                  // dismiss the one-time nudge
+  // Reflect state in the speaker glyph + accessible label (which names the switch).
+  el.soundIcon.querySelector('use').setAttribute('href', on ? '#icon-volume' : '#icon-mute');
+  el.soundLabel.textContent = on ? 'Ambient sound on' : 'Ambient sound off';
   if (on && currentMood) applyAudioForMood(currentMood);
 }
 el.soundToggle.addEventListener('change', () => enableSound(el.soundToggle.checked));
-el.soundPrompt.addEventListener('click', () => enableSound(true));
 
 /* ---------------------------------------------------------------------------
    MIXER PANEL open/close
@@ -280,4 +342,3 @@ const startId = store.get('moodscape:mood') && getMood(store.get('moodscape:mood
   ? store.get('moodscape:mood')
   : MOODS[0].id;
 selectMood(startId);
-el.soundPrompt.hidden = false;                   // show the gentle "turn on sound" nudge
