@@ -12,6 +12,7 @@ import { AudioEngine } from './audio.js';
 import { Timer } from './timer.js';
 import { Prompts } from './prompts.js';
 import { Fullscreen } from './fullscreen.js';
+import { applyMoodTheme } from './theme.js';
 
 /* Human-readable names for the synth layers (used as mixer row labels). */
 const LAYER_LABEL = {
@@ -92,8 +93,9 @@ function selectMood(id) {
   el.nav.querySelector('[aria-selected="true"]')
     ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
 
-  // Whisper the mood tint into the chrome (just the brand mark).
-  document.documentElement.style.setProperty('--mood', mood.tint);
+  // Tint the whole HUD toward this mood (panels, accent, sliders, focus ring),
+  // deriving legible text ink from the tint's luminance. See theme.js.
+  applyMoodTheme(mood);
 
   background.show(mood);       // crossfade the backdrop + grade
   applyAudioForMood(mood);     // ramp the ambient mix
