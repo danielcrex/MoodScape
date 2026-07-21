@@ -62,7 +62,11 @@ function makeScene(canvas, { init, draw }) {
 
   function frame(now) {
     if (!running) return;
-    const t = (now - t0) / 1000; // seconds since start, for smooth motion
+    // Clamp to 0: a rAF timestamp can be marginally EARLIER than the t0 we took
+    // just before scheduling it, which would make elapsed time negative and,
+    // e.g., feed a negative radius into ctx.ellipse (ripples). Time since start
+    // is never negative, so guard it here for every scene.
+    const t = Math.max(0, (now - t0) / 1000); // seconds since start, for smooth motion
     draw(state, t);
     raf = requestAnimationFrame(frame);
   }

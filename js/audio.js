@@ -23,8 +23,11 @@
    fade completes; it is rebuilt lazily the next time a mood needs it.
    =========================================================================== */
 
-/* The full set of layers a mood may reference (see mood.audio in moods.js). */
-const LAYER_NAMES = ['rain', 'wind', 'water', 'noise', 'fire', 'thunder', 'birds', 'chimes', 'drone', 'beat'];
+/* The full set of ambient layers a mood may reference (see mood.audio in
+   moods.js). NOTE: 'music' is deliberately NOT here — the melodic bed is its
+   own subsystem (own toggle + volume), managed separately from setMoodMix. */
+const LAYER_NAMES = ['rain', 'wind', 'water', 'noise', 'fire', 'thunder', 'birds', 'chimes', 'drone', 'beat',
+  'waves', 'crickets', 'bowl', 'bubbles'];
 
 /* How long after a fade-to-zero we wait before freeing a layer's graph. Must
    comfortably exceed the gain fade (setTargetAtTime, ~0.4 s time-constant) so
@@ -40,6 +43,9 @@ export class AudioEngine {
     this.enabled = false;      // master on/off (the sound toggle)
     this.masterLevel = 0.8;    // 0–1, the "master" mixer slider
     this.mix = {};             // current per-layer target gains for this mood
+    this.musicOn = false;      // the Music toggle (separate from ambient sound)
+    this.musicLevel = 0.6;     // 0–1, the Music volume slider
+    this.musicMood = null;     // the mood whose music we'd build
   }
 
   /* Create the context on first user gesture. Safe to call repeatedly. */
@@ -232,6 +238,10 @@ export class AudioEngine {
       chimes: () => this.#buildChimes(name),
       drone: () => this.#buildDrone(name),
       beat: () => this.#buildBeat(name),
+      waves: () => this.#buildWaves(name),
+      crickets: () => this.#buildCrickets(name),
+      bowl: () => this.#buildBowl(name),
+      bubbles: () => this.#buildBubbles(name),
     }[name] || (() => {}))();
   }
 
@@ -453,5 +463,215 @@ export class AudioEngine {
         nextTime += beatDur / 2;                        // eighth-note grid
       }
     }, 25);
+  }
+
+  /* Waves: ocean surf — low-passed noise whose amplitude swells slowly in and
+     out (an LFO on a gain), so it rolls rather than hisses. */
+  #buildWaves(name) {
+    const layer = this.#layerGain(name);
+    const src = this.#noiseSource(layer);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 0.6;
+    const swell = this.ctx.createGain(); swell.gain.value = 0.5;
+    // Slow LFO on the swell gain = surf rolling in and out.
+    const lfo = this.ctx.createOscillator(); lfo.frequency.value = 0.1;
+    const lfoGain = this.ctx.createGain(); lfoGain.gain.value = 0.4;
+    lfo.connect(lfoGain).connect(swell.gain); lfo.start();
+    const trim = this.ctx.createGain(); trim.gain.value = 0.7;
+    layer.nodes.push(lp, swell, lfo, lfoGain, trim);
+    layer.sources.push(lfo);
+    src.connect(lp).connect(swell).connect(trim).connect(layer.gain);
+  }
+
+  /* Crickets: night insects — each event is a short "stridulation" of fast
+     pulses on a narrow high band, at random intervals. */
+  #buildCrickets(name) {
+    const layer = this.#layerGain(name);
+    this.#repeat(layer, () => {
+      const t = this.ctx.currentTime;
+      const base = 4200 + Math.random() * 600;
+      const osc = this.ctx.createOscillator(); osc.type = 'square'; osc.frequency.value = base;
+      const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = base; bp.Q.value = 8;
+      const env = this.ctx.createGain(); env.gain.value = 0.0001;
+      const pulses = 6 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < pulses; i++) {
+        const s = t + i * 0.03;                         // a train of tiny pulses
+        env.gain.setValueAtTime(0.0001, s);
+        env.gain.linearRampToValueAtTime(0.05, s + 0.008);
+        env.gain.linearRampToValueAtTime(0.0001, s + 0.024);
+      }
+      osc.connect(bp).connect(env).connect(layer.gain);
+      osc.start(t); osc.stop(t + pulses * 0.03 + 0.05);
+    }, () => 400 + Math.random() * 900);
+  }
+
+  /* Bowl: a singing bowl — an occasional low struck tone with inharmonic
+     partials and a long shimmering decay. */
+  #buildBowl(name) {
+    const layer = this.#layerGain(name);
+    const scale = [196.0, 220.0, 261.63, 293.66]; // G3 A3 C4 D4
+    this.#repeat(layer, () => {
+      const f = scale[Math.floor(Math.random() * scale.length)];
+      const t = this.ctx.currentTime;
+      [1, 2.7, 4.2].forEach((mult, i) => {
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = f * mult;
+        const env = this.ctx.createGain();
+        const peak = 0.26 / (i + 1);
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(peak, t + 0.04);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 6); // long tail
+        osc.connect(env).connect(layer.gain);
+        osc.start(t); osc.stop(t + 6.2);
+      });
+    }, () => 5000 + Math.random() * 5000);
+  }
+
+  /* Bubbles: gentle water drops — short sines that leap up in pitch (a "plop"). */
+  #buildBubbles(name) {
+    const layer = this.#layerGain(name);
+    this.#repeat(layer, () => {
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator(); osc.type = 'sine';
+      const f = 500 + Math.random() * 700;
+      osc.frequency.setValueAtTime(f, t);
+      osc.frequency.exponentialRampToValueAtTime(f * 1.8, t + 0.06); // rising plop
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.14, t + 0.005);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.connect(env).connect(layer.gain);
+      osc.start(t); osc.stop(t + 0.16);
+    }, () => 300 + Math.random() * 1200);
+  }
+
+  /* =======================================================================
+     MUSIC — a synthesized melodic/harmonic bed, one per mood.
+     -----------------------------------------------------------------------
+     Music is a first-class layer but managed on its own (separate toggle +
+     volume, rebuilt per mood because each mood's mode/tempo differ). It reuses
+     the same layer record + #teardownLayer machinery, so it stops cleanly when
+     a mood is left or the toggle is switched off.
+     ======================================================================= */
+
+  /* Remember the mood whose music we'd play, and (re)build if music is on. */
+  setMusicMood(mood) {
+    this.musicMood = mood;
+    if (this.musicOn && this.ctx) {
+      this.#teardownLayer('music');       // different mood = different mode/tempo
+      this.#buildMusic(mood);
+      this.#setMusicGain(this.musicLevel);
+    }
+  }
+
+  /* The music on/off toggle. Like the layers, this must be reached from a user
+     gesture so the AudioContext can resume. */
+  setMusicEnabled(on) {
+    this.musicOn = on;
+    if (on) {
+      this.resume();
+      if (this.ctx && this.musicMood) {
+        this.#teardownLayer('music');
+        this.#buildMusic(this.musicMood);
+        this.#setMusicGain(this.musicLevel);
+      }
+    } else {
+      this.#setMusicGain(0);              // fade out, then free (see #setMusicGain)
+    }
+  }
+
+  setMusicLevel(v) {
+    this.musicLevel = v;
+    if (this.musicOn) this.#setMusicGain(v);
+  }
+
+  getMusicLevel() { return this.musicLevel; }
+  isMusicOn() { return this.musicOn; }
+
+  /* Ramp the music bed's gain; free it (stopping oscillators + arpeggiator)
+     once it has faded to silence, mirroring the ambient layers' behaviour. */
+  #setMusicGain(v) {
+    const layer = this.layers['music'];
+    if (!layer || !this.ctx) return;
+    layer.target = v;
+    const t = this.ctx.currentTime;
+    layer.gain.gain.cancelScheduledValues(t);
+    layer.gain.gain.setTargetAtTime(v, t, 0.4);
+    clearTimeout(layer.freeTimer);
+    if (v <= 0.001) {
+      layer.freeTimer = setTimeout(() => {
+        const l = this.layers['music'];
+        if (l && l.target <= 0.001) this.#teardownLayer('music');
+      }, FREE_DELAY_MS);
+    }
+  }
+
+  /* Build the synthesized bed for a mood from its data-driven `music` params. */
+  #buildMusic(mood) {
+    const p = mood.music;
+    if (!p) return;
+    const layer = this.#layerGain('music');
+
+    /* =====================================================================
+       EXTENSION POINT — swapping in a real recording later
+       ---------------------------------------------------------------------
+       To play a real music loop instead of synthesizing, this is the only seam
+       you need. Given e.g. `music: { src: 'assets/music/relax.mp3' }` in
+       moods.js, build the source HERE and return early:
+
+         const audioEl = new Audio(p.src); audioEl.loop = true;
+         const node = this.ctx.createMediaElementSource(audioEl);
+         node.connect(layer.gain);
+         audioEl.play().catch(() => {});
+         layer.nodes.push(node);
+         layer.el = audioEl;            // and pause it in #teardownLayer
+         return;
+
+       Everything downstream — the toggle, the volume slider, per-mood
+       switching, and #teardownLayer — already works unchanged.
+       ===================================================================== */
+
+    // A gentle low-pass keeps the bed soft and sitting behind the ambience.
+    const tone = this.ctx.createBiquadFilter();
+    tone.type = 'lowpass'; tone.frequency.value = p.cutoff || 2000; tone.Q.value = 0.4;
+    const trim = this.ctx.createGain(); trim.gain.value = p.gain ?? 0.5;
+    layer.nodes.push(tone, trim);
+    tone.connect(trim).connect(layer.gain);
+
+    // Sustained pad: a soft chord underpinning the arpeggio (persistent voices).
+    if (p.chord) {
+      p.chord.forEach((semi) => {
+        const osc = this.ctx.createOscillator();
+        osc.type = p.padWave || 'sine';
+        osc.frequency.value = p.root * Math.pow(2, semi / 12);
+        const g = this.ctx.createGain(); g.gain.value = 0.05;
+        osc.connect(g).connect(tone); osc.start();
+        layer.nodes.push(osc, g); layer.sources.push(osc);
+      });
+    }
+
+    // Arpeggio: each beat plays the next scale note as a soft plucked voice,
+    // with occasional octave lifts and harmonies so it never feels mechanical.
+    const beat = 60 / (p.tempo || 50);
+    const notes = p.scale;
+    let i = 0;
+    const voice = (t, freq) => {
+      const osc = this.ctx.createOscillator();
+      osc.type = p.wave || 'triangle';
+      osc.frequency.value = freq;
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.16, t + 0.04);
+      env.gain.exponentialRampToValueAtTime(0.001, t + beat * 1.6);
+      osc.connect(env).connect(tone);
+      osc.start(t); osc.stop(t + beat * 1.6 + 0.1);
+    };
+    this.#repeat(layer, () => {
+      const t = this.ctx.currentTime + 0.05;
+      const semi = notes[i % notes.length] + 12 * (Math.random() < 0.25 ? 1 : 0);
+      voice(t, p.root * Math.pow(2, semi / 12));
+      if (Math.random() < 0.3) voice(t, p.root * Math.pow(2, (semi + 7) / 12)); // a fifth above
+      i = (i + 1 + (Math.random() < 0.2 ? 1 : 0)) % (notes.length * 2);
+    }, () => beat * 1000 * (Math.random() < 0.15 ? 2 : 1)); // steady, with the odd rest
   }
 }

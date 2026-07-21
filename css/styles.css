@@ -240,6 +240,21 @@ button { cursor: pointer; background: none; border: none; }
 .mix-row__val { font-size:12px; color:var(--panel-ink-3); }
 .mix-row--master .mix-row__name { color:var(--mood-text); }
 
+/* Music bed — a distinct block above the ambient sliders (its own card, an
+   on/off switch, and a volume slider dimmed while off). */
+.mix-music { padding:12px; border-radius:var(--r-input); background:var(--panel-chip); border:1px solid var(--panel-border); display:flex; flex-direction:column; gap:10px; }
+.mix-music.is-on { border-color:var(--mood-strong); box-shadow:0 0 0 1px var(--mood-strong-shadow); }
+.mix-music__head { display:flex; align-items:center; justify-content:space-between; }
+.mix-music__title { display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--panel-ink); }
+.mix-music__title .icon { width:16px; height:16px; color:var(--mood-text); }
+.mix-music input[type="range"] { opacity:.45; transition:opacity .2s; }
+.mix-music.is-on input[type="range"] { opacity:1; }
+
+/* Small toggle variant (used by the music switch). */
+.toggle--sm { width:38px; height:22px; }
+.toggle--sm .thumb { width:15px; height:15px; }
+.toggle--sm input:checked + .track + .thumb { transform:translateX(17px); }
+
 /* Range slider filled with the mood accent. --val (0–100%) is set by app.js. */
 input[type="range"] {
   -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:var(--r-pill);
