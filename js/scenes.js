@@ -46,6 +46,42 @@ function backdrop(ctx, w, h, top, bottom) {
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
+/* --------------------------------------------------------------------------
+   LIGHTNING (Melancholy only) — a soft, brief luminance lift synced to the
+   thunder audio. Deliberately gentle: a slow-ish rise and a fade, low peak
+   opacity, and no rapid repetition (thunder booms are ~8–20 s apart), to stay
+   well clear of photosensitivity risk. Fully suppressed under reduced motion.
+   -------------------------------------------------------------------------- */
+const LIGHTNING_S = 0.85;   // total flash lifetime (seconds)
+
+/* 0→1 envelope: a ~120 ms rise (never an instant strobe) then a soft fade. */
+function lightningEnvelope(age) {
+  const attack = 0.12;
+  if (age < 0 || age >= LIGHTNING_S) return 0;
+  if (age < attack) return age / attack;                 // gentle rise
+  const d = (age - attack) / (LIGHTNING_S - attack);     // 0→1 over the fade
+  return (1 - d) ** 1.6;                                  // soft tail
+}
+
+/* A faint, thin jagged bolt down the upper sky — only visible for the first
+   instant of a flash, and at low opacity so it reads as distant, not harsh. */
+function drawBolt(ctx, w, h, xFrac, alpha) {
+  ctx.save();
+  ctx.strokeStyle = `rgba(226,236,255,${alpha})`;
+  ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+  ctx.beginPath();
+  const x = xFrac * w;
+  ctx.moveTo(x, 0);
+  const segs = 5;
+  for (let i = 1; i <= segs; i++) {
+    const y = (i / segs) * h * 0.5;
+    const jx = x + (Math.random() - 0.5) * w * 0.05;
+    ctx.lineTo(jx, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 /* Small helper that wires up the RAF loop + reduced-motion handling so each
    scene factory only has to provide init(), draw(time) and (optionally) a
    static frame. Returns the { start, stop, resize } object every scene exposes. */
@@ -143,7 +179,12 @@ function motes(canvas, mood) {
    fading into fog at the horizon.
    --------------------------------------------------------------------------- */
 function rain(canvas, mood) {
-  return makeScene(canvas, {
+  // Lightning state, driven by the thunder audio through scene.flash() (below).
+  let flashPending = false;    // a boom asked for a flash; begin it next frame
+  let flashStart = -Infinity;  // t (s) the current flash began
+  let boltX = 0.5;             // where the faint bolt falls (fraction of width)
+
+  const scene = makeScene(canvas, {
     init(ctx, w, h) {
       const drops = Array.from({ length: 260 }, () => ({
         x: rand(0, w), y: rand(0, h), len: rand(10, 24), speed: rand(600, 900),
@@ -155,6 +196,9 @@ function rain(canvas, mood) {
       return { ctx, w, h, drops, pines };
     },
     draw({ ctx, w, h, drops, pines }, t) {
+      // Latch a requested flash to the current frame's clock.
+      if (flashPending) { flashStart = t; boltX = 0.2 + Math.random() * 0.6; flashPending = false; }
+
       backdrop(ctx, w, h, '#7C8CA6', '#232F44');
       // Mist band drifting horizontally near the treeline.
       ctx.globalAlpha = 0.14;
@@ -183,8 +227,24 @@ function rain(canvas, mood) {
         ctx.lineTo(d.x - 2, d.y + d.len);
         ctx.stroke();
       }
+      // Lightning: a soft cool-white lift over the sky, brightest at the top.
+      // REDUCED never sets flashStart (flash() is a no-op), so this stays dark.
+      const k = lightningEnvelope(t - flashStart);
+      if (k > 0.001) {
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, `rgba(206,220,255,${0.34 * k})`);
+        g.addColorStop(1, `rgba(206,220,255,${0.05 * k})`);
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        if (t - flashStart < 0.16) drawBolt(ctx, w, h, boltX, 0.18 * k); // brief, faint bolt
+      }
     },
   });
+
+  // Called by the app when the thunder audio swells. Suppressed under reduced
+  // motion, so a photosensitive user gets rain + thunder but never a flash.
+  scene.flash = () => { if (!REDUCED) flashPending = true; };
+  return scene;
 }
 
 /* ---------------------------------------------------------------------------

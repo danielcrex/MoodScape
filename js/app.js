@@ -63,6 +63,10 @@ const timer = new Timer(el.timerDisplay, {
 
 let currentMood = null;
 
+/* When the thunder layer swells (Melancholy), flash the rain scene's lightning
+   in sympathy. The scene itself ignores this under prefers-reduced-motion. */
+audio.onThunder = () => background.flashLightning();
+
 /* ---------------------------------------------------------------------------
    MOOD TABS
    Build one tab per mood from the manifest, with its icon and label.
